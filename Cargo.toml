@@ -22,7 +22,7 @@ futures = "0.3.31"
 jieba-rs = "0.8.1"
 log = "0.4.28"
 ndarray = "0.17"
-ort = "2.0.0-rc.10"
+ort = { version = "2.0.0-rc.10", features = ["cuda", "coreml"] }
 pin-project = "1.1.10"
 pinyin = "0.10.0"
 rand = "0.10.0-rc.0"
@@ -41,6 +41,8 @@ rodio = { version = "0.21.1", default-features = false, features = [
     "playback"
 ] }
 tokio = { version = "1.48.0", features = ["macros"] }
+tracing-subscriber = "0.3"
+tracing = "0.1"
 
 [build-dependencies]
 cc = "1.2.41"
