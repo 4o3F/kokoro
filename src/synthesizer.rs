@@ -1,5 +1,5 @@
 use {
-    crate::{KokoroError, Voice, g2p, get_token_ids},
+    crate::{KokoroError, Voice, g2p, get_token_ids, session_pool::SessionPool},
     ndarray::Array,
     ort::{
         inputs,
@@ -11,11 +11,10 @@ use {
         sync::Weak,
         time::{Duration, SystemTime},
     },
-    tokio::sync::Mutex,
 };
 
 async fn synth_v10<P, S>(
-    model: Weak<Mutex<Session>>,
+    model: Weak<SessionPool>,
     phonemes: S,
     pack: P,
     speed: f32,
@@ -24,7 +23,7 @@ where
     P: AsRef<Vec<Vec<Vec<f32>>>>,
     S: AsRef<str>,
 {
-    let model = model.upgrade().ok_or(KokoroError::ModelReleased)?;
+    let pool = model.upgrade().ok_or(KokoroError::ModelReleased)?;
     let phonemes = get_token_ids(phonemes.as_ref(), false);
     let phonemes = Array::from_shape_vec((1, phonemes.len()), phonemes)?;
     let ref_s = pack.as_ref()[phonemes.len() - 1]
@@ -35,9 +34,9 @@ where
     let style = Array::from_shape_vec((1, ref_s.len()), ref_s)?;
     let speed = Array::from_vec(vec![speed]);
     let options = RunOptions::new()?;
-    let mut model = model.lock().await;
     let t = SystemTime::now();
-    let kokoro_output = model
+    let mut session = pool.acquire().await;
+    let kokoro_output = session
         .run_async(
             inputs![
                 "tokens" => TensorRef::from_array_view(&phonemes)?,
@@ -54,7 +53,7 @@ where
 }
 
 async fn synth_v11<P, S>(
-    model: Weak<Mutex<Session>>,
+    model: Weak<SessionPool>,
     phonemes: S,
     pack: P,
     speed: i32,
@@ -63,7 +62,7 @@ where
     P: AsRef<Vec<Vec<Vec<f32>>>>,
     S: AsRef<str>,
 {
-    let model = model.upgrade().ok_or(KokoroError::ModelReleased)?;
+    let pool = model.upgrade().ok_or(KokoroError::ModelReleased)?;
     let mut phonemes = get_token_ids(phonemes.as_ref(), true);
 
     let mut ret = Vec::new();
@@ -80,9 +79,10 @@ where
         let style = Array::from_shape_vec((1, ref_s.len()), ref_s)?;
         let speed = Array::from_vec(vec![speed]);
         let options = RunOptions::new()?;
-        let mut model = model.lock().await;
         let t = SystemTime::now();
-        let kokoro_output = model
+        let mut session = pool.acquire().await;
+
+        let kokoro_output = session
             .run_async(
                 inputs![
                     "input_ids" => TensorRef::from_array_view(&phonemes)?,
@@ -103,7 +103,7 @@ where
 }
 
 pub(super) async fn synth<P, S>(
-    model: Weak<Mutex<Session>>,
+    model: Weak<SessionPool>,
     text: S,
     pack: P,
     voice: Voice,

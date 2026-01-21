@@ -13,6 +13,18 @@ use std::{
     fmt::{Display, Formatter, Result as FmtResult},
 };
 
+use std::sync::LazyLock;
+
+static NUM_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"\d+(\.\d+)?"#).unwrap());
+
+static SENTENCE_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r#"([\u4E00-\u9FFF]+)|([，。：·？、！《》（）〖〗〖〗〔〕“”‘’〈〉…—　]+)|([\u0000-\u00FF]+)+"#).unwrap()
+});
+
+static EN_WORD_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\w+|\W+").unwrap());
+
+static JIEBA: LazyLock<jieba_rs::Jieba> = LazyLock::new(jieba_rs::Jieba::new);
+
 #[derive(Debug)]
 pub enum G2PError {
     #[cfg(feature = "use-cmudict")]
@@ -149,8 +161,8 @@ fn word2ipa_en(word: &str) -> Result<String, G2PError> {
             Initialize(DATA.as_ptr() as _);
         });
 
-        let word = CString::new(word.to_lowercase())?.into_raw() as *const c_char;
-        let res = TextToPhonemes(word);
+        let c_word = CString::new(word.to_lowercase())?;
+        let res = TextToPhonemes(c_word.as_ptr());
         Ok(CStr::from_ptr(res).to_str()?.to_string())
     }
 }
@@ -183,8 +195,7 @@ fn to_half_shape(text: &str) -> String {
 }
 
 fn num_repr(text: &str) -> Result<String, G2PError> {
-    let regex = Regex::new(r#"\d+(\.\d+)?"#)?;
-    Ok(regex
+    Ok(NUM_RE
         .replace(text, |caps: &Captures| {
             let text = &caps[0];
             if let Ok(num) = text.parse::<f64>() {
@@ -210,13 +221,8 @@ fn num_repr(text: &str) -> Result<String, G2PError> {
 
 pub fn g2p(text: &str, use_v11: bool) -> Result<String, G2PError> {
     let text = num_repr(text)?;
-    let sentence_pattern = Regex::new(
-        r#"([\u4E00-\u9FFF]+)|([，。：·？、！《》（）【】〖〗〔〕“”‘’〈〉…—　]+)|([\u0000-\u00FF]+)+"#,
-    )?;
-    let en_word_pattern = Regex::new("\\w+|\\W+")?;
-    let jieba = jieba_rs::Jieba::new();
     let mut result = String::new();
-    for i in sentence_pattern.captures_iter(&text) {
+    for i in SENTENCE_RE.captures_iter(&text) {
         match (i.get(1), i.get(2), i.get(3)) {
             (Some(text), _, _) => {
                 let text = to_half_shape(text.as_str());
@@ -227,7 +233,7 @@ pub fn g2p(text: &str, use_v11: bool) -> Result<String, G2PError> {
                     result.push_str(&v11::g2p(&text, true));
                     result.push(' ');
                 } else {
-                    for i in jieba.cut(&text, true) {
+                    for i in JIEBA.cut(&text, true) {
                         result.push_str(&word2ipa_zh(i)?);
                         result.push(' ');
                     }
@@ -240,7 +246,7 @@ pub fn g2p(text: &str, use_v11: bool) -> Result<String, G2PError> {
                 result.push(' ');
             }
             (_, _, Some(text)) => {
-                for i in en_word_pattern.captures_iter(text.as_str()) {
+                for i in EN_WORD_RE.captures_iter(text.as_str()) {
                     let c = (i[0]).chars().next().unwrap_or_default();
                     if c == '\''
                         || c == '_'
