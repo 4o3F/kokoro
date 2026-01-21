@@ -12,7 +12,7 @@ use {
     bincode::{config::standard, decode_from_slice},
     ort::{execution_providers::CUDAExecutionProvider, session::Session},
     std::{collections::HashMap, path::Path, sync::Arc, time::Duration},
-    tokio::{fs::read, sync::Mutex},
+    tokio::{fs::read},
 };
 pub use {error::*, g2p::*, stream::*, tokenizer::*, transcription::*, voice::*};
 

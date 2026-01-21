@@ -1,11 +1,7 @@
 use {
     crate::{KokoroError, Voice, g2p, get_token_ids, session_pool::SessionPool},
     ndarray::Array,
-    ort::{
-        inputs,
-        session::{RunOptions, Session},
-        value::TensorRef,
-    },
+    ort::{inputs, session::RunOptions, value::TensorRef},
     std::{
         cmp::min,
         sync::Weak,
@@ -68,7 +64,7 @@ where
     let mut ret = Vec::new();
     let mut elapsed = Duration::ZERO;
     while let p = phonemes.drain(..min(pack.as_ref().len(), phonemes.len()))
-        && p.len() != 0
+        && p.len() > 1
     {
         let phonemes = Array::from_shape_vec((1, p.len()), p.collect())?;
         let ref_s = pack.as_ref()[phonemes.len() - 1]
