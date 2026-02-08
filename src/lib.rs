@@ -12,7 +12,7 @@ use {
     bincode::{config::standard, decode_from_slice},
     ort::{execution_providers::CUDAExecutionProvider, session::Session},
     std::{collections::HashMap, path::Path, sync::Arc, time::Duration},
-    tokio::{fs::read},
+    tokio::fs::read,
 };
 pub use {error::*, g2p::*, stream::*, tokenizer::*, transcription::*, voice::*};
 
@@ -34,6 +34,7 @@ impl KokoroTts {
         for _ in 0..pool_size {
             let s = Session::builder()?
                 .with_execution_providers([CUDAExecutionProvider::default().build()])?
+                // .with_profiling("E:/tmp/kokoro")?
                 .commit_from_file(model_path.as_ref())?;
             sessions.push(s);
         }
@@ -79,5 +80,9 @@ impl KokoroTts {
                 synthesizer::synth(model, text, pack, voice).await
             }
         })
+    }
+
+    pub fn end_profiling(&self) {
+        self.model.clone().end_profiling();
     }
 }

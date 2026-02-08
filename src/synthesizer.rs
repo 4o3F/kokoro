@@ -52,7 +52,7 @@ async fn synth_v11<P, S>(
     model: Weak<SessionPool>,
     phonemes: S,
     pack: P,
-    speed: i32,
+    speed: f32,
 ) -> Result<(Vec<f32>, Duration), KokoroError>
 where
     P: AsRef<Vec<Vec<Vec<f32>>>>,

@@ -6,6 +6,7 @@ use std::{
 };
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
+#[derive(Debug)]
 pub struct SessionPool {
     sem: Arc<Semaphore>,
     sessions: Mutex<Vec<Session>>,
@@ -36,6 +37,22 @@ impl SessionPool {
             pool: self,
             session: Some(session),
             _permit: permit,
+        }
+    }
+
+    pub fn end_profiling(&self) {
+        let mut sessions = self.sessions.lock();
+        for session in sessions.iter_mut() {
+            session.end_profiling().unwrap();
+        }
+    }
+}
+
+impl Drop for SessionPool {
+    fn drop(&mut self) {
+        let sessions = self.sessions.get_mut();
+        for session in sessions {
+            session.end_profiling().unwrap();
         }
     }
 }
